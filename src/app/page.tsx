@@ -30,7 +30,16 @@ import {
   AlertTriangle,
   Copy,
   Check,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Folder,
+  ChevronRight,
+  Atom,
+  Monitor,
+  Tablet,
+  Smartphone,
+  Send,
+  MessageSquare,
+  FileCode
 } from 'lucide-react';
 
 export default function FluxPlatformPage() {
@@ -42,11 +51,38 @@ export default function FluxPlatformPage() {
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [selectedDirectionId, setSelectedDirectionId] = useState<string>('');
   const [useAiReasoning, setUseAiReasoning] = useState<boolean>(true);
+  const [leftTab, setLeftTab] = useState<'directions' | 'tree' | 'brief'>('directions');
+  const [rightTab, setRightTab] = useState<'preview' | 'diff' | 'verify'>('preview');
+  const [quickRefinePrompt, setQuickRefinePrompt] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch provider status on load
+  // Fetch provider status on load & auto-load projectId query param if present
   useEffect(() => {
     fetchProviders();
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const pid = params.get('projectId');
+      if (pid) {
+        setIsLoading(true);
+        setStatusMessage('Loading project workspace...');
+        fetch(`/api/projects/${pid}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.project) {
+              setProject(data.project);
+              if (data.project.directions?.length) {
+                setSelectedDirectionId(data.project.directions[0].id);
+              }
+              setActiveStep(data.project.status === 'transformed' ? 5 : 3);
+            }
+          })
+          .catch(() => {})
+          .finally(() => {
+            setIsLoading(false);
+            setStatusMessage('');
+          });
+      }
+    }
   }, []);
 
   const fetchProviders = async () => {
@@ -286,6 +322,7 @@ Photorealistic desktop UI showcase, 16:10 aspect ratio, clean modern card layout
           setProject(null);
           setActiveStep(1);
         }}
+        projectName={project?.name}
       />
 
       <ProviderModal
@@ -394,16 +431,33 @@ Photorealistic desktop UI showcase, 16:10 aspect ratio, clean modern card layout
           </div>
         )}
 
-        {/* Step 2: Project Analysis & Brief */}
-        {project && activeStep === 2 && (
-          <div className="space-y-8 animate-fade-in">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
-              <div>
-                <span className="text-xs font-mono uppercase tracking-wider text-emerald-400">Step 2: Project Intake &amp; Analysis</span>
-                <h2 className="text-2xl font-bold text-zinc-100 mt-1">{project.name}</h2>
-              </div>
+        {/* Pro Studio Dual-Panel Workspace (When Project is Active) */}
+        {project && (
+          <div className="space-y-6 animate-fade-in max-w-[1600px] mx-auto">
+            {/* Top Studio Control Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800/80">
               <div className="flex items-center space-x-3">
-                {/* Engine Mode Toggle */}
+                <div className="w-10 h-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-lg">
+                  📁
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <h2 className="text-xl font-bold text-zinc-100">{project.name}</h2>
+                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
+                      {project.inventory?.framework.toUpperCase() || 'REACT'}
+                    </span>
+                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60 font-bold">
+                      {project.inventory?.detectedDomain.toUpperCase() || 'WEB'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-500 font-mono mt-0.5">
+                    {project.inventory?.components.length || 0} components · {project.inventory?.routes.length || 1} screen · {project.fileCount} source files
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions & Engine Toggle */}
+              <div className="flex items-center space-x-3 flex-wrap gap-2">
                 <div className="flex items-center bg-zinc-900 border border-zinc-800 p-1 rounded-lg text-xs">
                   <button
                     onClick={() => setUseAiReasoning(true)}
@@ -414,7 +468,7 @@ Photorealistic desktop UI showcase, 16:10 aspect ratio, clean modern card layout
                     }`}
                   >
                     <Cpu className="w-3.5 h-3.5" />
-                    <span>AI Reasoning (Ollama)</span>
+                    <span>Ollama (Local)</span>
                   </button>
                   <button
                     onClick={() => setUseAiReasoning(false)}
@@ -424,343 +478,405 @@ Photorealistic desktop UI showcase, 16:10 aspect ratio, clean modern card layout
                         : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
-                    <span>Demo Mode (Rules)</span>
+                    <span>Deterministic</span>
                   </button>
                 </div>
 
-                <button
-                  onClick={handleGenerateDirections}
-                  disabled={isLoading}
-                  className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs rounded-lg transition-all flex items-center space-x-2 shadow-lg shadow-emerald-950/40"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>Synthesize Visual Directions</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
+                {(!project.directions || project.directions.length === 0) && (
+                  <button
+                    onClick={handleGenerateDirections}
+                    disabled={isLoading}
+                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs rounded-lg transition-all flex items-center space-x-2 shadow-lg shadow-emerald-950/40"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Synthesize Directions</span>
+                  </button>
+                )}
+
+                {project.transformationResult && (
+                  <a
+                    href={`/api/projects/${project.id}/export`}
+                    download
+                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs rounded-lg transition-all flex items-center space-x-2 shadow-lg shadow-emerald-950/40"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download Project ZIP</span>
+                  </a>
+                )}
               </div>
             </div>
 
-            {/* Inventory Overview */}
-            {project.inventory && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/60">
-                  <span className="text-xs text-zinc-500 font-mono">Framework</span>
-                  <p className="text-sm font-bold text-zinc-200 mt-0.5">{project.inventory.framework.toUpperCase()}</p>
+            {/* Studio Split Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Left Column (5 Cols): Component Tree & Visual Directions */}
+              <div className="lg:col-span-5 space-y-4">
+                {/* Segmented Selector Bar */}
+                <div className="flex items-center justify-between bg-zinc-900/90 border border-zinc-800 p-1 rounded-xl text-xs font-mono">
+                  <button
+                    onClick={() => setLeftTab('directions')}
+                    className={`flex-1 py-1.5 px-3 rounded-lg transition-colors font-medium flex items-center justify-center space-x-1.5 ${
+                      leftTab === 'directions'
+                        ? 'bg-zinc-800 text-emerald-400 font-bold shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    <Palette className="w-3.5 h-3.5" />
+                    <span>Visual direction ({project.directions?.length || 0})</span>
+                  </button>
+                  <button
+                    onClick={() => setLeftTab('tree')}
+                    className={`flex-1 py-1.5 px-3 rounded-lg transition-colors font-medium flex items-center justify-center space-x-1.5 ${
+                      leftTab === 'tree'
+                        ? 'bg-zinc-800 text-emerald-400 font-bold shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    <Atom className="w-3.5 h-3.5" />
+                    <span>Detect component tree</span>
+                  </button>
                 </div>
-                <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/60">
-                  <span className="text-xs text-zinc-500 font-mono">Styling Pattern</span>
-                  <p className="text-sm font-bold text-zinc-200 mt-0.5">{project.inventory.styling.toUpperCase()}</p>
-                </div>
-                <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/60">
-                  <span className="text-xs text-zinc-500 font-mono">Detected Domain</span>
-                  <p className="text-sm font-bold text-emerald-400 mt-0.5">{project.inventory.detectedDomain.toUpperCase()}</p>
-                </div>
-                <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/60">
-                  <span className="text-xs text-zinc-500 font-mono">Components &amp; Routes</span>
-                  <p className="text-sm font-bold text-zinc-200 mt-0.5">{project.inventory.components.length} comps / {project.inventory.routes.length} screens</p>
-                </div>
-              </div>
-            )}
 
-            {/* Components and Preserved Contracts */}
-            <div className="border border-zinc-800 rounded-xl bg-zinc-900/40 p-6 space-y-4">
-              <h3 className="text-sm font-bold text-zinc-200 flex items-center space-x-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>Detected Components &amp; Guaranteed Preserved State</span>
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {project.inventory?.components.map(comp => (
-                  <div key={comp.filePath} className="p-3 rounded-lg border border-zinc-800 bg-zinc-950 text-xs space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono font-bold text-zinc-200">{comp.name}</span>
-                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">{comp.type}</span>
-                    </div>
-                    <p className="text-zinc-500 truncate">{comp.filePath}</p>
-                    <div className="flex items-center space-x-2 pt-1 text-[11px] text-zinc-400">
-                      {comp.hasState && <span className="text-emerald-400 font-mono">● State Hook</span>}
-                      {comp.eventHandlers.length > 0 && (
-                        <span className="font-mono text-zinc-400">
-                          [{comp.eventHandlers.join(', ')}]
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {isLoading && (
-              <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-xl text-center text-xs text-emerald-400 font-mono flex items-center justify-center space-x-2">
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>{statusMessage}</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Step 3: Design Exploration (3 Distinct Directions) */}
-        {project && activeStep === 3 && project.directions && (
-          <div className="space-y-8 animate-fade-in">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
-              <div>
-                <span className="text-xs font-mono uppercase tracking-wider text-emerald-400">Step 3: Design Exploration</span>
-                <h2 className="text-2xl font-bold text-zinc-100 mt-1">Select a Distinct Visual Direction</h2>
-              </div>
-              <div className="text-xs font-mono text-zinc-400">
-                Identified Domain: <span className="text-emerald-400 font-bold">{project.inventory?.detectedDomain.toUpperCase()}</span>
-              </div>
-            </div>
-
-            {/* Design Brief Card */}
-            {project.brief && (
-              <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 space-y-2">
-                <span className="text-xs font-mono uppercase tracking-wider text-zinc-500">Inferred Product Brief</span>
-                <p className="text-sm text-zinc-300 leading-relaxed font-medium">
-                  {project.brief.applicationPurpose}
-                </p>
-                <div className="flex flex-wrap gap-4 pt-2 text-xs text-zinc-400">
-                  <div><span className="text-zinc-500">Audience:</span> {project.brief.targetAudience}</div>
-                  <div><span className="text-zinc-500">Personality:</span> {project.brief.productPersonality}</div>
-                </div>
-              </div>
-            )}
-
-            {/* Zero-API-Cost ChatGPT Reference Loop Banner */}
-            <div className="p-4 rounded-xl border border-cyan-800/40 bg-cyan-950/20 flex items-start space-x-3 text-xs">
-              <Sparkles className="w-4 h-4 text-cyan-400 mt-0.5 shrink-0" />
-              <div>
-                <span className="font-bold text-cyan-300">Zero-API-Cost Reference Loop:</span>
-                <span className="text-zinc-300 ml-1">
-                  Click <strong className="text-zinc-100 font-mono">Prompt ChatGPT</strong> on any direction, paste it into ChatGPT (DALL-E 3) or Midjourney to generate high-res visual mockups for free, then click <strong className="text-zinc-100 font-mono">Upload Ref</strong>. Our local coding engine will transform your real codebase to match!
-                </span>
-              </div>
-            </div>
-
-            {/* 3 Directions Cards */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {project.directions.map(dir => (
-                <div
-                  key={dir.id}
-                  onClick={() => setSelectedDirectionId(dir.id)}
-                  className={`cursor-pointer rounded-2xl border transition-all overflow-hidden flex flex-col justify-between ${
-                    selectedDirectionId === dir.id
-                      ? 'border-emerald-500 bg-zinc-900/90 shadow-2xl shadow-emerald-950/40 ring-1 ring-emerald-500'
-                      : 'border-zinc-800 bg-zinc-900/40 hover:border-zinc-700'
-                  }`}
-                >
-                  <div>
-                    {/* Visual Reference Artboard */}
-                    <div className="w-full h-44 bg-zinc-950 border-b border-zinc-800 overflow-hidden relative group">
-                      <img
-                        src={dir.referenceImage.url}
-                        alt={dir.name}
-                        className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
-                      />
-                      <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-zinc-950/80 backdrop-blur border border-zinc-800 text-[10px] font-mono text-zinc-400">
-                        {dir.referenceImage.provider}
-                      </div>
-                    </div>
-
-                    {/* Direction Specs */}
-                    <div className="p-5 space-y-3">
-                      <div>
-                        <h4 className="text-base font-bold text-zinc-100">{dir.name}</h4>
-                        <p className="text-xs text-zinc-400 mt-0.5 leading-relaxed">{dir.tagline}</p>
-                      </div>
-
-                      {/* Swatches */}
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-mono uppercase text-zinc-500">Palette Tokens</span>
-                        <div className="flex items-center space-x-1.5">
-                          <span className="w-6 h-5 rounded border border-zinc-700" style={{ backgroundColor: dir.palette.primary }} title={`Primary: ${dir.palette.primary}`} />
-                          <span className="w-6 h-5 rounded border border-zinc-700" style={{ backgroundColor: dir.palette.secondary }} title={`Secondary: ${dir.palette.secondary}`} />
-                          <span className="w-6 h-5 rounded border border-zinc-700" style={{ backgroundColor: dir.palette.accent }} title={`Accent: ${dir.palette.accent}`} />
-                          <span className="w-6 h-5 rounded border border-zinc-700" style={{ backgroundColor: dir.palette.surface }} title={`Surface: ${dir.palette.surface}`} />
-                          <span className="w-6 h-5 rounded border border-zinc-700" style={{ backgroundColor: dir.palette.background }} title={`Background: ${dir.palette.background}`} />
-                        </div>
-                      </div>
-
-                      <div className="text-xs space-y-1 pt-1 text-zinc-400">
-                        <div><span className="text-zinc-500 font-mono">Typography:</span> {dir.typography.headingFont} + {dir.typography.bodyFont}</div>
-                        <div><span className="text-zinc-500 font-mono">Geometry:</span> {dir.geometry.borderRadius} radius / {dir.geometry.buttonVariant}</div>
-                      </div>
-
-                      {/* Vision Model Extraction Feedback */}
-                      {dir.visionAnalysis && (
-                        <div className="p-2.5 rounded bg-emerald-950/40 border border-emerald-800/50 text-[11px] text-emerald-300">
-                          <div className="font-semibold flex items-center space-x-1">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                            <span>Vision Model Active</span>
+                {/* Left Content Area */}
+                {leftTab === 'directions' ? (
+                  <div className="space-y-4">
+                    {/* Directions Cards */}
+                    {project.directions && project.directions.length > 0 ? (
+                      project.directions.map((dir) => (
+                        <div
+                          key={dir.id}
+                          onClick={() => setSelectedDirectionId(dir.id)}
+                          className={`rounded-2xl border transition-all overflow-hidden p-5 space-y-4 cursor-pointer ${
+                            selectedDirectionId === dir.id
+                              ? 'border-emerald-500 bg-zinc-900/90 shadow-2xl shadow-emerald-950/50 ring-1 ring-emerald-500'
+                              : 'border-zinc-800 bg-zinc-900/40 hover:border-zinc-700'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h4 className="text-base font-bold text-zinc-100 flex items-center space-x-2">
+                                <span>{dir.name}</span>
+                                <ChevronRight className="w-4 h-4 text-zinc-500" />
+                              </h4>
+                              <p className="text-xs text-zinc-400 mt-0.5 leading-relaxed">{dir.tagline}</p>
+                            </div>
                           </div>
-                          <p className="text-[10px] text-zinc-400 mt-0.5 line-clamp-2">
-                            {dir.visionAnalysis.aestheticDescription}
-                          </p>
-                        </div>
-                      )}
 
-                      {/* ChatGPT / DALL-E Reference Image Actions */}
-                      <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCopyChatGptPrompt(dir);
-                          }}
-                          className="flex-1 py-1.5 px-2 bg-zinc-800/90 hover:bg-zinc-750 text-zinc-300 rounded text-[11px] font-mono flex items-center justify-center space-x-1.5 transition-colors border border-zinc-700/60"
-                          title="Copy prompt for ChatGPT or Midjourney"
-                        >
-                          {copiedPromptId === dir.id ? (
-                            <>
-                              <Check className="w-3 h-3 text-emerald-400" />
-                              <span className="text-emerald-400 font-semibold">Prompt Copied!</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3 h-3 text-zinc-400" />
-                              <span>Prompt ChatGPT</span>
-                            </>
+                          {/* Circle Swatches */}
+                          <div className="flex items-center space-x-2">
+                            <span
+                              className="w-7 h-7 rounded-full border border-zinc-700/60 shadow-sm transition-transform hover:scale-110"
+                              style={{ backgroundColor: dir.palette.primary }}
+                              title={`Primary: ${dir.palette.primary}`}
+                            />
+                            <span
+                              className="w-7 h-7 rounded-full border border-zinc-700/60 shadow-sm transition-transform hover:scale-110"
+                              style={{ backgroundColor: dir.palette.secondary }}
+                              title={`Secondary: ${dir.palette.secondary}`}
+                            />
+                            <span
+                              className="w-7 h-7 rounded-full border border-zinc-700/60 shadow-sm transition-transform hover:scale-110"
+                              style={{ backgroundColor: dir.palette.accent }}
+                              title={`Accent: ${dir.palette.accent}`}
+                            />
+                            <span
+                              className="w-7 h-7 rounded-full border border-zinc-700/60 shadow-sm transition-transform hover:scale-110"
+                              style={{ backgroundColor: dir.palette.surface }}
+                              title={`Surface: ${dir.palette.surface}`}
+                            />
+                            <span
+                              className="w-7 h-7 rounded-full border border-zinc-700/60 shadow-sm transition-transform hover:scale-110"
+                              style={{ backgroundColor: dir.palette.background }}
+                              title={`Background: ${dir.palette.background}`}
+                            />
+                          </div>
+
+                          {/* Tags */}
+                          <div className="flex flex-wrap gap-2 text-[10px] font-mono text-zinc-400">
+                            <span className="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700">
+                              Typography: {dir.typography.headingFont}
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700">
+                              Radius: {dir.geometry.borderRadius}
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700">
+                              Style: {dir.geometry.buttonVariant}
+                            </span>
+                          </div>
+
+                          {/* Vision Analysis Badge if active */}
+                          {dir.visionAnalysis && (
+                            <div className="p-2.5 rounded bg-emerald-950/40 border border-emerald-800/50 text-[11px] text-emerald-300">
+                              <div className="font-semibold flex items-center space-x-1">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                <span>Vision Model Active</span>
+                              </div>
+                              <p className="text-[10px] text-zinc-400 mt-0.5 line-clamp-2">
+                                {dir.visionAnalysis.aestheticDescription}
+                              </p>
+                            </div>
                           )}
-                        </button>
 
-                        <label
-                          onClick={(e) => e.stopPropagation()}
-                          className="cursor-pointer py-1.5 px-2 bg-zinc-800/90 hover:bg-zinc-750 text-zinc-300 rounded text-[11px] font-mono flex items-center justify-center space-x-1.5 transition-colors border border-zinc-700/60"
-                          title="Upload image generated by ChatGPT or Midjourney"
-                        >
-                          <ImageIcon className="w-3 h-3 text-cyan-400" />
-                          <span>Upload Ref</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleUploadReferenceImage(dir.id, file);
+                          {/* Action Buttons */}
+                          <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyChatGptPrompt(dir);
+                              }}
+                              className="flex-1 py-1.5 px-2 bg-zinc-800/90 hover:bg-zinc-750 text-zinc-300 rounded text-[11px] font-mono flex items-center justify-center space-x-1.5 transition-colors border border-zinc-700/60"
+                              title="Copy prompt for ChatGPT or Midjourney"
+                            >
+                              {copiedPromptId === dir.id ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-400" />
+                                  <span className="text-emerald-400 font-semibold">Prompt Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3 text-zinc-400" />
+                                  <span>Prompt ChatGPT</span>
+                                </>
+                              )}
+                            </button>
+
+                            <label
+                              onClick={(e) => e.stopPropagation()}
+                              className="cursor-pointer py-1.5 px-2 bg-zinc-800/90 hover:bg-zinc-750 text-zinc-300 rounded text-[11px] font-mono flex items-center justify-center space-x-1.5 transition-colors border border-zinc-700/60"
+                              title="Upload image generated by ChatGPT or Midjourney"
+                            >
+                              <ImageIcon className="w-3 h-3 text-cyan-400" />
+                              <span>Upload Ref</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) handleUploadReferenceImage(dir.id, file);
+                                }}
+                              />
+                            </label>
+                          </div>
+
+                          {/* Apply Transformation Button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedDirectionId(dir.id);
+                              handleTransform(dir.id);
                             }}
-                          />
-                        </label>
+                            disabled={isLoading}
+                            className={`w-full py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-1.5 ${
+                              selectedDirectionId === dir.id
+                                ? 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-md shadow-emerald-950/40'
+                                : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200'
+                            }`}
+                          >
+                            <span>Apply Transformation</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-8 border border-zinc-800 rounded-2xl bg-zinc-900/30 text-center space-y-3">
+                        <Sparkles className="w-8 h-8 text-emerald-400 mx-auto" />
+                        <h4 className="text-sm font-bold text-zinc-200">No Directions Synthesized Yet</h4>
+                        <p className="text-xs text-zinc-400 max-w-xs mx-auto">
+                          Click below to have our reasoning engine analyze your product identity and synthesize 3 visual philosophies.
+                        </p>
+                        <button
+                          onClick={handleGenerateDirections}
+                          disabled={isLoading}
+                          className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs rounded-lg transition-all"
+                        >
+                          Synthesize Visual Directions
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Component Tree View */
+                  <div className="border border-zinc-800 rounded-2xl bg-zinc-900/40 p-5 space-y-3 font-mono text-xs">
+                    <div className="flex items-center space-x-2 text-emerald-400 font-bold pb-2 border-b border-zinc-800">
+                      <Atom className="w-4 h-4" />
+                      <span>ReactComponent Tree</span>
+                    </div>
+
+                    <div className="space-y-2 pl-2">
+                      <div className="flex items-center space-x-2 text-zinc-400">
+                        <Folder className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="text-zinc-300 font-semibold">{project.name}</span>
+                      </div>
+
+                      <div className="pl-4 space-y-2 border-l border-zinc-800">
+                        {project.inventory?.components.map((comp) => (
+                          <div
+                            key={comp.filePath}
+                            className="p-2.5 rounded-lg border border-zinc-800/80 bg-zinc-950/60 space-y-1 hover:border-zinc-700 transition-colors"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-zinc-200 font-bold flex items-center space-x-1.5">
+                                <span className="text-emerald-400">{'{}'}</span>
+                                <span>{comp.name}</span>
+                              </span>
+                              <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">
+                                {comp.type}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-zinc-500 truncate">{comp.filePath}</p>
+                            <div className="flex items-center space-x-2 text-[10px] text-zinc-400">
+                              {comp.hasState && <span className="text-emerald-400">● State Hook</span>}
+                              {comp.eventHandlers.length > 0 && (
+                                <span className="text-cyan-400">[{comp.eventHandlers.join(', ')}]</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
+                )}
+              </div>
 
-                  {/* Select button */}
-                  <div className="p-5 pt-0">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedDirectionId(dir.id);
-                        handleTransform(dir.id);
-                      }}
-                      disabled={isLoading}
-                      className={`w-full py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-1.5 ${
-                        selectedDirectionId === dir.id
-                          ? 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-md'
-                          : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200'
-                      }`}
-                    >
-                      <span>Apply &amp; Transform Codebase</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
+              {/* Right Column (7 Cols): Live Preview Studio & Refinement */}
+              <div className="lg:col-span-7 space-y-4">
+                {/* Live Preview Studio Card */}
+                <div className="border border-zinc-800 rounded-2xl bg-zinc-900/40 overflow-hidden shadow-2xl">
+                  {/* Studio Header Bar */}
+                  <div className="p-4 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between flex-wrap gap-3">
+                    <div className="flex items-center space-x-2">
+                      <h3 className="text-sm font-bold text-zinc-100 flex items-center space-x-2">
+                        <Activity className="w-4 h-4 text-emerald-400" />
+                        <span>Live Preview studio</span>
+                      </h3>
+                    </div>
+
+                    {/* View Switchers */}
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setRightTab('preview')}
+                        className={`px-3 py-1 rounded text-xs font-mono transition-colors ${
+                          rightTab === 'preview'
+                            ? 'bg-zinc-800 text-zinc-100 font-bold border border-zinc-700'
+                            : 'text-zinc-400 hover:text-zinc-200'
+                        }`}
+                      >
+                        Live Preview
+                      </button>
+                      <button
+                        onClick={() => setRightTab('diff')}
+                        className={`px-3 py-1 rounded text-xs font-mono transition-colors ${
+                          rightTab === 'diff'
+                            ? 'bg-zinc-800 text-zinc-100 font-bold border border-zinc-700'
+                            : 'text-zinc-400 hover:text-zinc-200'
+                        }`}
+                      >
+                        Code Diff
+                      </button>
+                      <button
+                        onClick={() => setRightTab('verify')}
+                        className={`px-3 py-1 rounded text-xs font-mono transition-colors ${
+                          rightTab === 'verify'
+                            ? 'bg-zinc-800 text-zinc-100 font-bold border border-zinc-700'
+                            : 'text-zinc-400 hover:text-zinc-200'
+                        }`}
+                      >
+                        Health Check
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Studio Canvas Area */}
+                  <div className="p-4 bg-zinc-950/80 min-h-[500px]">
+                    {rightTab === 'preview' && (
+                      <PreviewFrame projectId={project.id} />
+                    )}
+
+                    {rightTab === 'diff' && (
+                      project.transformationResult ? (
+                        <DiffViewer diffs={project.transformationResult.diffs} />
+                      ) : (
+                        <div className="p-12 text-center text-zinc-500 font-mono text-xs">
+                          No code transformation applied yet. Select a visual concept on the left and click "Apply Transformation".
+                        </div>
+                      )
+                    )}
+
+                    {rightTab === 'verify' && (
+                      project.verificationReport ? (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+                            <span className="text-xs font-mono text-zinc-400">Overall Integrity Status</span>
+                            <span className="text-xs font-mono font-bold px-2.5 py-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60">
+                              SCORE: {project.verificationReport.score}% ({project.verificationReport.overallStatus.toUpperCase()})
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {project.verificationReport.checks.map((chk) => (
+                              <div key={chk.id} className="p-3 rounded-lg border border-zinc-800 bg-zinc-900/60 text-xs space-y-1 font-mono">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-zinc-200 font-semibold">{chk.name}</span>
+                                  <span className={chk.status === 'pass' ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                                    {chk.status.toUpperCase()}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-zinc-400 leading-snug">{chk.message}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-12 text-center text-zinc-500 font-mono text-xs">
+                          Verification report will be generated automatically when code transformation runs.
+                        </div>
+                      )
+                    )}
                   </div>
                 </div>
-              ))}
+
+                {/* Floating Natural-Language Refinement Input Bar (Matching Mockup) */}
+                <div className="border border-zinc-800 rounded-full bg-zinc-900/90 shadow-2xl p-1.5 flex items-center space-x-2">
+                  <div className="pl-3 text-zinc-500">
+                    <MessageSquare className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={quickRefinePrompt}
+                    onChange={(e) => setQuickRefinePrompt(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && quickRefinePrompt.trim()) {
+                        handleSendRefinement(quickRefinePrompt);
+                        setQuickRefinePrompt('');
+                      }
+                    }}
+                    placeholder="Refine contrast and convert table to cards... ✨"
+                    className="flex-1 bg-transparent border-none text-xs text-zinc-200 placeholder:text-zinc-500 outline-none font-sans"
+                    disabled={isLoading}
+                  />
+                  <button
+                    onClick={() => {
+                      if (quickRefinePrompt.trim()) {
+                        handleSendRefinement(quickRefinePrompt);
+                        setQuickRefinePrompt('');
+                      }
+                    }}
+                    disabled={isLoading || !quickRefinePrompt.trim()}
+                    className="p-2 rounded-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold disabled:opacity-40 transition-colors"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
             </div>
 
+            {/* Spinner Overlay */}
             {isLoading && (
-              <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-xl text-center text-xs text-emerald-400 font-mono flex items-center justify-center space-x-2">
+              <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-xl text-center text-xs text-emerald-400 font-mono flex items-center justify-center space-x-2 shadow-2xl">
                 <RefreshCw className="w-4 h-4 animate-spin" />
                 <span>{statusMessage}</span>
               </div>
             )}
-          </div>
-        )}
-
-        {/* Step 4: Transformed Codebase, Live Preview, Verification & Refinement */}
-        {project && activeStep === 4 && (
-          <div className="space-y-10 animate-fade-in">
-            {/* Header info */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
-              <div>
-                <span className="text-xs font-mono uppercase tracking-wider text-emerald-400">Step 4 &amp; 5: Transformed Sandbox &amp; Verification</span>
-                <h2 className="text-2xl font-bold text-zinc-100 mt-1">Live Application Workspace</h2>
-              </div>
-              <div className="flex items-center space-x-3">
-                <a
-                  href={`/api/projects/${project.id}/export`}
-                  download
-                  className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs rounded-lg transition-all flex items-center space-x-2 shadow-lg shadow-emerald-950/40"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Download Transformed Project (.zip)</span>
-                </a>
-              </div>
-            </div>
-
-            {/* Verification scorecard */}
-            {project.verificationReport && (
-              <div className="border border-zinc-800 rounded-xl p-5 bg-zinc-900/40 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2.5">
-                    <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                    <h3 className="text-sm font-bold text-zinc-200">Verification &amp; Integrity Health Check</h3>
-                  </div>
-                  <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60">
-                    SCORE: {project.verificationReport.score}% ({project.verificationReport.overallStatus.toUpperCase()})
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
-                  {project.verificationReport.checks.map(chk => (
-                    <div key={chk.id} className="p-3 rounded-lg border border-zinc-800 bg-zinc-950 text-xs space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-zinc-200">{chk.name}</span>
-                        {chk.status === 'pass' ? (
-                          <span className="text-emerald-400 font-mono text-[10px] font-bold">PASS</span>
-                        ) : (
-                          <span className="text-rose-400 font-mono text-[10px] font-bold">FAIL</span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-zinc-400 leading-snug">{chk.message}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Live Interactive Preview */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-bold text-zinc-200 flex items-center space-x-2">
-                <Activity className="w-4 h-4 text-emerald-400" />
-                <span>Sandboxed Application Preview (Original vs Transformed)</span>
-              </h3>
-              <PreviewFrame projectId={project.id} />
-            </div>
-
-            {/* Code Modifications & Diffs */}
-            {project.transformationResult && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-bold text-zinc-200 flex items-center space-x-2">
-                  <Code2 className="w-4 h-4 text-emerald-400" />
-                  <span>
-                    Source Code Modifications ({project.transformationResult.summary.filesModifiedCount} files modified, +{project.transformationResult.summary.linesAdded} / -{project.transformationResult.summary.linesRemoved})
-                  </span>
-                </h3>
-                <DiffViewer diffs={project.transformationResult.diffs} />
-              </div>
-            )}
-
-            {/* Natural-Language Refinement Chat */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-bold text-zinc-200 flex items-center space-x-2">
-                <Terminal className="w-4 h-4 text-emerald-400" />
-                <span>Iterative Natural-Language Refinements</span>
-              </h3>
-              <RefinementChat
-                history={project.refinementHistory || []}
-                onSendInstruction={handleSendRefinement}
-                isLoading={isLoading}
-              />
-            </div>
           </div>
         )}
       </main>
