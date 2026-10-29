@@ -7,6 +7,7 @@ import {
   ComponentGeometry
 } from '@/types';
 import { AIProviderManager } from '../ai/ai-provider-manager';
+import { generateScreenPromptsForDirection } from './screen-prompt-generator';
 
 /**
  * Generates a structured Design Brief for the project.
@@ -313,7 +314,7 @@ Return JSON with exact structure:
               geometry
             });
 
-            directions.push({
+            const dirObj: DesignDirection = {
               id: c.id || `ai_concept_${i + 1}`,
               name: c.name || `Direction ${String.fromCharCode(65 + i)}`,
               tagline: c.tagline || c.description || 'Custom AI-invented visual direction.',
@@ -325,7 +326,9 @@ Return JSON with exact structure:
               layoutPrinciple: c.layoutPrinciple || 'Architectural grid alignment.',
               whyItSuits: c.whyItSuits || 'Specifically synthesized for this product identity.',
               referenceImage
-            });
+            };
+            dirObj.screenPrompts = generateScreenPromptsForDirection(inventory, dirObj, brief);
+            directions.push(dirObj);
           }
 
           return directions;
@@ -360,7 +363,7 @@ async function generateDeterministicDirections(
       geometry: item.geometry
     });
 
-    directions.push({
+    const dirObj: DesignDirection = {
       id: item.id,
       name: item.name,
       tagline: item.tagline,
@@ -372,7 +375,9 @@ async function generateDeterministicDirections(
       layoutPrinciple: item.layoutPrinciple,
       whyItSuits: item.whyItSuits,
       referenceImage
-    });
+    };
+    dirObj.screenPrompts = generateScreenPromptsForDirection(inventory, dirObj, brief);
+    directions.push(dirObj);
   }
 
   return directions;

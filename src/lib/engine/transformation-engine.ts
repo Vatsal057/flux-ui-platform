@@ -163,7 +163,7 @@ export function transformJsxSource(code: string, spec: DesignSystemSpec): string
       }
 
       if (classes.includes('bg-white') || classes.includes('bg-gray-') || classes.includes('shadow')) {
-        let updated = classes
+        const updated = classes
           .replace(/\bbg-white\b/g, 'bg-[var(--flux-surface)]')
           .replace(/\bbg-gray-[50|100|200]+\b/g, 'bg-[var(--flux-surface-secondary)]')
           .replace(/\bborder-gray-[0-9]+\b/g, 'border-[var(--flux-border)]')
@@ -212,7 +212,7 @@ export function transformJsxSource(code: string, spec: DesignSystemSpec): string
   transformed = transformed.replace(
     /<h1\b([\s\S]*?)className=(["'])([^"']*?)\2/g,
     (match, preAttributes, quote, classes) => {
-      let updated = classes
+      const updated = classes
         .replace(/\btext-[0-9a-z-]+\b/g, '')
         .replace(/\bfont-[0-9a-z]+\b/g, '') + ` ${spec.typographyClasses.h1}`;
       return `<h1${preAttributes}className=${quote}${updated.trim()}${quote}`;
@@ -222,7 +222,7 @@ export function transformJsxSource(code: string, spec: DesignSystemSpec): string
   transformed = transformed.replace(
     /<h2\b([\s\S]*?)className=(["'])([^"']*?)\2/g,
     (match, preAttributes, quote, classes) => {
-      let updated = classes
+      const updated = classes
         .replace(/\btext-[0-9a-z-]+\b/g, '')
         .replace(/\bfont-[0-9a-z]+\b/g, '') + ` ${spec.typographyClasses.h2}`;
       return `<h2${preAttributes}className=${quote}${updated.trim()}${quote}`;
@@ -232,7 +232,7 @@ export function transformJsxSource(code: string, spec: DesignSystemSpec): string
   transformed = transformed.replace(
     /<h3\b([\s\S]*?)className=(["'])([^"']*?)\2/g,
     (match, preAttributes, quote, classes) => {
-      let updated = classes
+      const updated = classes
         .replace(/\btext-[0-9a-z-]+\b/g, '')
         .replace(/\bfont-[0-9a-z]+\b/g, '') + ` ${spec.typographyClasses.h3}`;
       return `<h3${preAttributes}className=${quote}${updated.trim()}${quote}`;

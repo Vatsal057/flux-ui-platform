@@ -128,6 +128,18 @@ export interface VisualReferenceImage {
   svgDataUri?: string;
 }
 
+export interface ScreenPrompt {
+  screenId: string;
+  screenName: string;
+  routePath: string;
+  purpose: string;
+  componentsIncluded: string[];
+  chatGptPrompt: string;
+  negativeConstraints: string;
+  recommendedAspect: string;
+  referenceImageUrl?: string;
+}
+
 export interface VisionAnalysisResult {
   sourceImage?: string;
   extractedPalette: Partial<ColorPalette>;
@@ -152,6 +164,7 @@ export interface DesignDirection {
   whyItSuits: string;
   referenceImage: VisualReferenceImage;
   visionAnalysis?: VisionAnalysisResult;
+  screenPrompts?: ScreenPrompt[];
 }
 
 export interface DesignSystemSpec {

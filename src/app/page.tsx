@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useSyncExternalStore } from 'react';
 import {
   ProjectMetadata,
   ProviderStatus,
   DesignDirection,
-  FileDiff
+  FileDiff,
+  ScreenPrompt
 } from '@/types';
+import { generateAllScreenPromptsMarkdown } from '@/lib/reasoning/screen-prompt-generator';
 import { Navbar } from '@/components/platform/Navbar';
 import { ProviderModal } from '@/components/platform/ProviderModal';
 import { DiffViewer } from '@/components/platform/DiffViewer';
@@ -39,63 +41,71 @@ import {
   Smartphone,
   Send,
   MessageSquare,
-  FileCode
+  FileCode,
+  ExternalLink,
+  FileDown
 } from 'lucide-react';
+
+const fetchProviderStatus = (): Promise<ProviderStatus | null> =>
+  fetch('/api/providers/status')
+    .then((res) => (res.ok ? res.json() : null))
+    .catch(() => null);
 
 export default function FluxPlatformPage() {
   const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [project, setProject] = useState<ProjectMetadata | null>(null);
   const [activeStep, setActiveStep] = useState<number>(1);
-  const [isLoading, setIsLoading] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string>('');
+  const [isBusy, setIsLoading] = useState(false);
+  const [busyMessage, setStatusMessage] = useState<string>('');
   const [selectedDirectionId, setSelectedDirectionId] = useState<string>('');
   const [useAiReasoning, setUseAiReasoning] = useState<boolean>(true);
-  const [leftTab, setLeftTab] = useState<'directions' | 'tree' | 'brief'>('directions');
+  // URL is read via useSyncExternalStore so SSR/hydration see '' and the client re-renders with the real query
+  const search = useSyncExternalStore(
+    () => () => {},
+    () => window.location.search,
+    () => ''
+  );
+  const urlParams = new URLSearchParams(search);
+  const tabParam = urlParams.get('tab');
+  const urlTab = tabParam === 'prompts' || tabParam === 'tree' || tabParam === 'directions' ? tabParam : null;
+  const urlProjectId = urlParams.get('projectId');
+  const [leftTabChoice, setLeftTab] = useState<'directions' | 'prompts' | 'tree' | 'brief' | null>(null);
+  const leftTab = leftTabChoice ?? urlTab ?? 'directions';
   const [rightTab, setRightTab] = useState<'preview' | 'diff' | 'verify'>('preview');
   const [quickRefinePrompt, setQuickRefinePrompt] = useState<string>('');
+  const [copiedScreenId, setCopiedScreenId] = useState<string | null>(null);
+  const [copiedAllPrompts, setCopiedAllPrompts] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch provider status on load & auto-load projectId query param if present
+  const fetchProviders = () => fetchProviderStatus().then((data) => data && setProviderStatus(data));
+
+  // Fetch provider status on load
   useEffect(() => {
-    fetchProviders();
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const pid = params.get('projectId');
-      if (pid) {
-        setIsLoading(true);
-        setStatusMessage('Loading project workspace...');
-        fetch(`/api/projects/${pid}`)
-          .then((res) => res.json())
-          .then((data) => {
-            if (data.project) {
-              setProject(data.project);
-              if (data.project.directions?.length) {
-                setSelectedDirectionId(data.project.directions[0].id);
-              }
-              setActiveStep(data.project.status === 'transformed' ? 5 : 3);
-            }
-          })
-          .catch(() => {})
-          .finally(() => {
-            setIsLoading(false);
-            setStatusMessage('');
-          });
-      }
-    }
+    fetchProviderStatus().then((data) => data && setProviderStatus(data));
   }, []);
 
-  const fetchProviders = async () => {
-    try {
-      const res = await fetch('/api/providers/status');
-      if (res.ok) {
-        const data = await res.json();
-        setProviderStatus(data);
-      }
-    } catch {
-      // Fallback
-    }
-  };
+  // Auto-load projectId query param if present
+  const [urlProjectLoaded, setUrlProjectLoaded] = useState(false);
+  const isLoadingUrlProject = !!urlProjectId && !urlProjectLoaded;
+  const isLoading = isBusy || isLoadingUrlProject;
+  const statusMessage = busyMessage || (isLoadingUrlProject ? 'Loading project workspace...' : '');
+  useEffect(() => {
+    if (!urlProjectId) return;
+    fetch(`/api/projects/${urlProjectId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.project) {
+          setProject(data.project);
+          if (data.project.directions?.length) {
+            setSelectedDirectionId(data.project.directions[0].id);
+          }
+          setActiveStep(data.project.status === 'transformed' ? 5 : 3);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setUrlProjectLoaded(true));
+  }, [urlProjectId]);
 
   // Upload ZIP
   const handleUploadZip = async (file: File) => {
@@ -128,6 +138,67 @@ export default function FluxPlatformPage() {
   };
 
   const [copiedPromptId, setCopiedPromptId] = useState<string | null>(null);
+
+  const activeDirection = project?.directions?.find((d) => d.id === selectedDirectionId) || project?.directions?.[0];
+  const activeScreenPrompts: ScreenPrompt[] = activeDirection?.screenPrompts || [];
+
+  const handleCopyScreenPrompt = (sp: ScreenPrompt) => {
+    navigator.clipboard.writeText(sp.chatGptPrompt);
+    setCopiedScreenId(sp.screenId);
+    setTimeout(() => setCopiedScreenId(null), 2500);
+  };
+
+  const handleCopyAllPrompts = () => {
+    if (!project || !activeDirection || !activeScreenPrompts.length) return;
+    navigator.clipboard.writeText(generateAllScreenPromptsMarkdown(project.name, activeDirection, activeScreenPrompts));
+    setCopiedAllPrompts(true);
+    setTimeout(() => setCopiedAllPrompts(false), 2500);
+  };
+
+  const handleDownloadPromptsMarkdown = () => {
+    if (!project || !activeDirection || !activeScreenPrompts.length) return;
+    const fullDoc = generateAllScreenPromptsMarkdown(project.name, activeDirection, activeScreenPrompts);
+    const blob = new Blob([fullDoc], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${project.name.toLowerCase()}-chatgpt-screen-prompts.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleUploadScreenReferenceImage = async (screenId: string, file: File) => {
+    if (!project || !activeDirection) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      try {
+        setIsLoading(true);
+        setStatusMessage('Linking ChatGPT screen reference image to screen...');
+        const res = await fetch(`/api/projects/${project.id}/screen-prompts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            directionId: activeDirection.id,
+            screenId,
+            imageUrl: dataUrl
+          })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `Request failed (${res.status}).`);
+
+        // Server returns the persisted project; functional update avoids clobbering newer state
+        setProject((prev) => (prev && prev.id === data.project.id ? { ...prev, directions: data.project.directions } : prev));
+      } catch (err: unknown) {
+        console.error('Failed to link screen reference image:', err);
+        alert(`Reference Image Error: ${err instanceof Error ? err.message : String(err)}`);
+      } finally {
+        setIsLoading(false);
+        setStatusMessage('');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleCopyChatGptPrompt = (dir: DesignDirection) => {
     const domain = project?.inventory?.detectedDomain || 'web';
@@ -511,28 +582,39 @@ Photorealistic desktop UI showcase, 16:10 aspect ratio, clean modern card layout
               {/* Left Column (5 Cols): Component Tree & Visual Directions */}
               <div className="lg:col-span-5 space-y-4">
                 {/* Segmented Selector Bar */}
-                <div className="flex items-center justify-between bg-zinc-900/90 border border-zinc-800 p-1 rounded-xl text-xs font-mono">
+                <div className="flex items-center justify-between bg-zinc-900/90 border border-zinc-800 p-1 rounded-xl text-xs font-mono gap-1">
                   <button
                     onClick={() => setLeftTab('directions')}
-                    className={`flex-1 py-1.5 px-3 rounded-lg transition-colors font-medium flex items-center justify-center space-x-1.5 ${
+                    className={`flex-1 py-1.5 px-2 rounded-lg transition-colors font-medium flex items-center justify-center space-x-1 ${
                       leftTab === 'directions'
                         ? 'bg-zinc-800 text-emerald-400 font-bold shadow-sm'
                         : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
                     <Palette className="w-3.5 h-3.5" />
-                    <span>Visual direction ({project.directions?.length || 0})</span>
+                    <span>Visual directions ({project.directions?.length || 0})</span>
+                  </button>
+                  <button
+                    onClick={() => setLeftTab('prompts')}
+                    className={`flex-1 py-1.5 px-2 rounded-lg transition-colors font-medium flex items-center justify-center space-x-1 ${
+                      leftTab === 'prompts'
+                        ? 'bg-zinc-800 text-emerald-400 font-bold shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>ChatGPT Prompts ({activeScreenPrompts.length})</span>
                   </button>
                   <button
                     onClick={() => setLeftTab('tree')}
-                    className={`flex-1 py-1.5 px-3 rounded-lg transition-colors font-medium flex items-center justify-center space-x-1.5 ${
+                    className={`flex-1 py-1.5 px-2 rounded-lg transition-colors font-medium flex items-center justify-center space-x-1 ${
                       leftTab === 'tree'
                         ? 'bg-zinc-800 text-emerald-400 font-bold shadow-sm'
                         : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
                     <Atom className="w-3.5 h-3.5" />
-                    <span>Detect component tree</span>
+                    <span>Tree ({project.inventory?.components.length || 0})</span>
                   </button>
                 </div>
 
@@ -601,6 +683,26 @@ Photorealistic desktop UI showcase, 16:10 aspect ratio, clean modern card layout
                             <span className="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700">
                               Style: {dir.geometry.buttonVariant}
                             </span>
+                          </div>
+
+                          {/* Screen Prompts Quick Indicator */}
+                          <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-950/70 border border-zinc-800 text-[11px] font-mono">
+                            <span className="text-zinc-400 flex items-center space-x-1.5">
+                              <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>{dir.screenPrompts?.length || 1} Screen Prompts for ChatGPT</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedDirectionId(dir.id);
+                                setLeftTab('prompts');
+                              }}
+                              className="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center space-x-1"
+                            >
+                              <span>View Prompts</span>
+                              <ChevronRight className="w-3 h-3" />
+                            </button>
                           </div>
 
                           {/* Vision Analysis Badge if active */}
@@ -691,6 +793,190 @@ Photorealistic desktop UI showcase, 16:10 aspect ratio, clean modern card layout
                           className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs rounded-lg transition-all"
                         >
                           Synthesize Visual Directions
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : leftTab === 'prompts' ? (
+                  <div className="space-y-4">
+                    {/* Header with Actions */}
+                    <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/60 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <h4 className="text-sm font-bold text-zinc-100 flex items-center space-x-1.5">
+                              <MessageSquare className="w-4 h-4 text-emerald-400" />
+                              <span>ChatGPT Screen Prompts</span>
+                            </h4>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-800/60">
+                              {activeDirection?.name || 'Active Direction'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-zinc-400 mt-1 leading-snug">
+                            Detailed, production-grade image generation prompts formatted specifically for ChatGPT (GPT-4o / DALL-E 3) for each screen in your application.
+                          </p>
+                        </div>
+                        <a
+                          href="https://chatgpt.com"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] font-mono rounded-lg border border-zinc-700 flex items-center space-x-1 transition-colors shrink-0"
+                        >
+                          <span>Open ChatGPT</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+
+                      {/* Bulk Actions */}
+                      <div className="flex items-center gap-2 pt-2 border-t border-zinc-800">
+                        <button
+                          onClick={handleCopyAllPrompts}
+                          className="flex-1 py-1.5 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-mono rounded-lg border border-zinc-700 transition-colors flex items-center justify-center space-x-1.5"
+                        >
+                          {copiedAllPrompts ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              <span className="text-emerald-400 font-semibold">All Prompts Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5 text-zinc-400" />
+                              <span>Copy All Prompts (.md)</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={handleDownloadPromptsMarkdown}
+                          className="py-1.5 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-mono rounded-lg border border-zinc-700 transition-colors flex items-center justify-center space-x-1.5"
+                          title="Download Markdown file"
+                        >
+                          <FileDown className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Export .md</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Screen Prompts List */}
+                    {activeScreenPrompts.length > 0 ? (
+                      activeScreenPrompts.map((sp, idx) => (
+                        <div
+                          key={sp.screenId}
+                          className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 space-y-3 hover:border-zinc-700 transition-all shadow-lg"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                <span className="w-5 h-5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800/80 text-[10px] font-mono font-bold flex items-center justify-center">
+                                  {idx + 1}
+                                </span>
+                                <h5 className="text-xs font-bold text-zinc-100">{sp.screenName}</h5>
+                                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+                                  {sp.routePath}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-zinc-400 mt-1">{sp.purpose}</p>
+                            </div>
+
+                            <button
+                              onClick={() => handleCopyScreenPrompt(sp)}
+                              className="py-1 px-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded text-[11px] font-mono flex items-center space-x-1 transition-colors shrink-0"
+                            >
+                              {copiedScreenId === sp.screenId ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-400" />
+                                  <span className="font-semibold">Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3" />
+                                  <span>Copy Prompt</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+
+                          {/* Components Badges */}
+                          <div className="flex flex-wrap gap-1 text-[10px] font-mono text-zinc-400">
+                            {sp.componentsIncluded.map((comp) => (
+                              <span
+                                key={comp}
+                                className="px-1.5 py-0.5 rounded bg-zinc-950 border border-zinc-800 text-zinc-300"
+                              >
+                                {comp}
+                              </span>
+                            ))}
+                            <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">
+                              {sp.recommendedAspect}
+                            </span>
+                          </div>
+
+                          {/* Prompt Preview Block */}
+                          <div className="relative group">
+                            <pre className="p-3 rounded-xl bg-zinc-950 border border-zinc-800/90 text-[11px] font-mono text-zinc-300 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto custom-scrollbar">
+                              {sp.chatGptPrompt}
+                            </pre>
+                          </div>
+
+                          {/* Upload Reference Image For This Screen */}
+                          <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between text-xs font-mono">
+                            {sp.referenceImageUrl ? (
+                              <div className="flex items-center space-x-2">
+                                <img
+                                  src={sp.referenceImageUrl}
+                                  alt={sp.screenName}
+                                  className="w-10 h-10 object-cover rounded border border-emerald-500/50"
+                                />
+                                <div>
+                                  <span className="text-[11px] text-emerald-400 font-semibold flex items-center space-x-1">
+                                    <CheckCircle2 className="w-3 h-3" />
+                                    <span>ChatGPT Image Linked</span>
+                                  </span>
+                                  <label className="text-[10px] text-zinc-400 hover:text-zinc-200 underline cursor-pointer">
+                                    Replace image
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) handleUploadScreenReferenceImage(sp.screenId, file);
+                                      }}
+                                    />
+                                  </label>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between w-full">
+                                <span className="text-[11px] text-zinc-500">
+                                  Generated image via ChatGPT?
+                                </span>
+                                <label className="cursor-pointer py-1 px-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded text-[11px] flex items-center space-x-1.5 transition-colors border border-zinc-700">
+                                  <ImageIcon className="w-3 h-3 text-cyan-400" />
+                                  <span>Attach Screen Mockup</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) handleUploadScreenReferenceImage(sp.screenId, file);
+                                    }}
+                                  />
+                                </label>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-8 border border-zinc-800 rounded-2xl bg-zinc-900/30 text-center space-y-2 text-xs font-mono text-zinc-400">
+                        <MessageSquare className="w-6 h-6 text-zinc-600 mx-auto" />
+                        <p>No screen prompts generated yet.</p>
+                        <button
+                          onClick={handleGenerateDirections}
+                          className="px-3 py-1.5 rounded bg-emerald-500 text-zinc-950 font-bold"
+                        >
+                          Generate Directions
                         </button>
                       </div>
                     )}
@@ -798,7 +1084,7 @@ Photorealistic desktop UI showcase, 16:10 aspect ratio, clean modern card layout
                         <DiffViewer diffs={project.transformationResult.diffs} />
                       ) : (
                         <div className="p-12 text-center text-zinc-500 font-mono text-xs">
-                          No code transformation applied yet. Select a visual concept on the left and click "Apply Transformation".
+                          No code transformation applied yet. Select a visual concept on the left and click &quot;Apply Transformation&quot;.
                         </div>
                       )
                     )}
