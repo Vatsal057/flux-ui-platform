@@ -24,7 +24,7 @@ export function Navbar({ providerStatus, onOpenSettings, activeStep, onResetProj
             onClick={onResetProject}
             className="flex items-center space-x-2.5 text-left focus:outline-none group"
           >
-            <div className="w-8 h-8 rounded-md bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center text-zinc-950 font-black text-sm shadow-[0_0_15px_rgba(16,185,129,0.3)] group-hover:scale-105 transition-transform">
+            <div className="w-8 h-8 rounded-md bg-emerald-500 flex items-center justify-center text-zinc-950 font-black text-sm tracking-tighter group-hover:scale-105 transition-transform">
               FL
             </div>
             <div>

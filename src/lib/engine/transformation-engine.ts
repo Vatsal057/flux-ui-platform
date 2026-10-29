@@ -213,10 +213,68 @@ export function transformJsxSource(code: string, spec: DesignSystemSpec): string
     /<h1\b([\s\S]*?)className=(["'])([^"']*?)\2/g,
     (match, preAttributes, quote, classes) => {
       let updated = classes
-        .replace(/\btext-[0-9a-z]+\b/g, '')
+        .replace(/\btext-[0-9a-z-]+\b/g, '')
         .replace(/\bfont-[0-9a-z]+\b/g, '') + ` ${spec.typographyClasses.h1}`;
       return `<h1${preAttributes}className=${quote}${updated.trim()}${quote}`;
     }
+  );
+
+  transformed = transformed.replace(
+    /<h2\b([\s\S]*?)className=(["'])([^"']*?)\2/g,
+    (match, preAttributes, quote, classes) => {
+      let updated = classes
+        .replace(/\btext-[0-9a-z-]+\b/g, '')
+        .replace(/\bfont-[0-9a-z]+\b/g, '') + ` ${spec.typographyClasses.h2}`;
+      return `<h2${preAttributes}className=${quote}${updated.trim()}${quote}`;
+    }
+  );
+
+  transformed = transformed.replace(
+    /<h3\b([\s\S]*?)className=(["'])([^"']*?)\2/g,
+    (match, preAttributes, quote, classes) => {
+      let updated = classes
+        .replace(/\btext-[0-9a-z-]+\b/g, '')
+        .replace(/\bfont-[0-9a-z]+\b/g, '') + ` ${spec.typographyClasses.h3}`;
+      return `<h3${preAttributes}className=${quote}${updated.trim()}${quote}`;
+    }
+  );
+
+  // 6. Transform Badges and category tags
+  transformed = transformed.replace(
+    /\b(?:bg-gray-100 text-gray-[6789]00|bg-blue-100 text-blue-[6789]00)\b/g,
+    'bg-[var(--flux-surface-secondary)] text-[var(--flux-accent)] border border-[var(--flux-border)] font-mono'
+  );
+
+  // 7. Transform Category filter buttons in ternary expressions
+  transformed = transformed.replace(
+    /bg-blue-600 text-white/g,
+    'bg-[var(--flux-primary)] text-[var(--flux-primary-fg)] font-bold shadow-sm'
+  );
+  transformed = transformed.replace(
+    /bg-gray-100 text-gray-600 hover:bg-gray-200/g,
+    'bg-[var(--flux-surface-secondary)] text-[var(--flux-fg-muted)] hover:text-[var(--flux-fg)] border border-[var(--flux-border)]'
+  );
+
+  // 8. Transform Category label text
+  transformed = transformed.replace(
+    /\btext-blue-500 font-medium uppercase\b/g,
+    'text-[var(--flux-secondary)] font-mono text-[11px] tracking-wider uppercase'
+  );
+
+  // 9. Transform Delete / danger buttons
+  transformed = transformed.replace(
+    /\btext-red-500 hover:text-red-700\b/g,
+    'text-[var(--flux-error)] hover:opacity-80 transition-opacity font-mono'
+  );
+
+  // 10. Transform checkmark toggle button states
+  transformed = transformed.replace(
+    /bg-blue-600 border-blue-600 text-white/g,
+    'bg-[var(--flux-primary)] border-[var(--flux-primary)] text-[var(--flux-primary-fg)] shadow-sm'
+  );
+  transformed = transformed.replace(
+    /border-gray-300 hover:border-blue-400/g,
+    'border-[var(--flux-border)] hover:border-[var(--flux-primary)] bg-[var(--flux-surface)]'
   );
 
   return transformed;

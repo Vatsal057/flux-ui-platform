@@ -305,11 +305,11 @@ Photorealistic desktop UI showcase, 16:10 aspect ratio, clean modern card layout
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Zero Hallucination Source-Code Transformation</span>
               </div>
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-zinc-100 leading-[1.1]">
-                Transform generic AI apps into <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">distinctive products</span>.
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-[-0.035em] text-zinc-100 leading-[1.08] text-balance">
+                Transform generic AI apps into <span className="text-emerald-400">distinctive products</span>.
               </h1>
-              <p className="text-base sm:text-lg text-zinc-400 leading-relaxed max-w-2xl mx-auto">
-                Upload your existing AI-generated React codebase. FLUX understands its identity, develops 3 distinctive design philosophies, transforms the real source code, and verifies that everything still works.
+              <p className="text-base sm:text-lg text-zinc-400 leading-relaxed max-w-2xl mx-auto text-pretty">
+                Upload your existing AI-generated React codebase. FLUX analyzes its identity, develops 3 distinctive design philosophies, transforms the real source code, and verifies that business logic and state remain intact.
               </p>
             </div>
 
