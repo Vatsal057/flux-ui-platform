@@ -1,36 +1,166 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FLUX — AI-Powered UI Transformation Platform
 
-## Getting Started
+> **"Transform your existing application into a distinctive, beautifully designed experience without rebuilding it from scratch."**
 
-First, run the development server:
+FLUX is an automated web platform that takes generic AI-generated React applications, analyzes their functional purpose, generates 3 distinct visual design philosophies, translates the chosen philosophy into real source-code modifications (JSX and design tokens), verifies that business logic and interactive handlers remain intact, and exports the redesigned codebase as a ZIP archive.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
+---
+
+## Key Features
+
+1. **Intelligent Project Intake & Validation**
+   - Secure ZIP extraction with zip-slip path traversal prevention, file count caps, and executable binary filtering.
+   - Extracts projects into isolated workspace sandboxes (`.flux-data/workspaces/<id>`).
+   - The user's original codebase is strictly preserved in `original/` and never modified.
+
+2. **Automated Source Code Inventory**
+   - Automatically detects framework (React Vite, Next.js App/Pages Router, CRA) and styling approach (Tailwind CSS v3/v4, pure CSS, CSS modules).
+   - Identifies routes, screens, component hierarchies, state hooks (`useState`, `useReducer`), event handlers (`onClick`, `onChange`, `onSubmit`), and design tokens.
+   - Infers application domain (Finance, Gaming/RPG, Productivity, Health/Mindfulness, Dev-tools, E-commerce).
+
+3. **Domain-Tailored Design Brief & 3 Distinct Philosophies**
+   - Synthesizes product purpose, personality, audience, and typography direction.
+   - Generates 3 radically distinct visual philosophies (e.g. for Finance: *Swiss Terminal Precision*, *Nordic Frost Luxe*, and *Kinetic Cyber Ledger*) differing in layout density, typography scale, geometry, and palettes.
+   - Generates honest visual references: connects to Cloudflare Workers AI / Hugging Face if configured, or renders high-fidelity deterministic vector artboards showing exact tokens and card composition.
+
+4. **AST & Framework-Aware Transformation Engine**
+   - Directly edits real project source code in the isolated working directory.
+   - Injects design system variables into stylesheets and Tailwind configurations.
+   - Upgrades generic AI card containers, buttons, inputs, and headings to design system tokens.
+   - **Guarantees 100% preservation of all event handlers, state hooks, props, and API calls.**
+
+5. **Automated Verification & Integrity Guardrails**
+   - Runs syntax balance checks (matching braces, unclosed JSX tags).
+   - Verifies component import contracts and missing dependencies.
+   - Verifies interactive behavior preservation (ensures no event handlers were dropped).
+   - Executes isolated build verification.
+
+6. **Interactive Responsive Preview & Comparison**
+   - Live sandboxed preview frame with viewport switchers: Desktop (1440px), Tablet (768px), and Mobile (375px).
+   - One-click toggle between **"Redesigned (FLUX)"** and **"Original UI"** to inspect before/after differences.
+   - Unified diff viewer displaying exact line-by-line additions and deletions.
+
+7. **Natural-Language Refinement Chat**
+   - Chat interface allowing users to prompt targeted aesthetic modifications (e.g., *"Make it darker with pitch obsidian surfaces"*, *"Use sharp 0px brutalist borders"*, *"Switch primary accent to vibrant emerald"*).
+   - Translates prompts into token and stylesheet updates and re-verifies the build.
+
+8. **Clean ZIP Export**
+   - Downloads the transformed project ready to run with `npm install && npm run dev`.
+   - Includes a comprehensive `TRANSFORMATION_REPORT.md` documenting all changes, tokens, and verification results.
+
+---
+
+## AI Provider Strategy & Zero-Cost Operation
+
+FLUX is engineered to operate without requiring any paid AI API subscriptions:
+
+- **Local AI Coding & Reasoning (Ollama)**: Automatically connects to locally running Ollama instances (`http://127.0.0.1:11434`), utilizing installed models such as `qwen2.5-coder:7b`.
+- **Deterministic Rule-Based Reasoning Engine**: When Ollama or cloud models are offline, FLUX uses a built-in domain heuristic engine to generate professional design briefs, visual directions, and full source code modifications.
+- **Visual Reference Generation**:
+  - OpenAI DALL-E 3 (`OPENAI_API_KEY` in environment).
+  - Cloudflare Workers AI (`@cf/stabilityai/stable-diffusion-xl-base-1.0`) if configured.
+  - Hugging Face Inference API (`black-forest-labs/FLUX.1-schnell`) if configured.
+  - **Zero-Cost ChatGPT In-The-Loop**: 1-click clipboard prompt generator formatted for DALL-E 3 / Midjourney plus reference mockup uploader.
+  - High-fidelity **Deterministic Vector Artboard Engine** when running completely offline.
+  - **Strict Truthfulness**: FLUX never claims a placeholder or vector artboard was generated by an AI service.
+
+---
+
+## Setup & Local Development
+
+### Prerequisites
+- Node.js 18+ (tested on Node v24)
+- `pnpm` (or `npm`)
+- (Optional) `ollama` with `qwen2.5-coder:7b` for local reasoning
+
+### 1. Installation
+\`\`\`bash
+git clone <repo-url>
+cd FLUX
+pnpm install
+\`\`\`
+
+### 2. Configure Environment
+Copy the example environment template:
+\`\`\`bash
+cp .env.example .env.local
+\`\`\`
+Edit `.env.local` if you wish to configure optional hosted providers or custom Ollama endpoints. If left untouched, FLUX defaults to local Ollama and the deterministic design engine.
+
+### 3. Run Automated Tests
+\`\`\`bash
+pnpm test
+\`\`\`
+Runs the comprehensive test suite covering:
+- ZIP validation and zip-slip path traversal attack rejection
+- Project detection and inventory analysis
+- Design brief and visual direction generation
+- Source code transformation and event handler preservation
+- Build verification and syntax checking
+- Natural-language refinement engine
+- End-to-end pipeline using the LedgerFlow fixture
+
+### 4. Start Development Server
+\`\`\`bash
 pnpm dev
-# or
-bun dev
-```
+\`\`\`
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## End-to-End Verification Procedure (Using LedgerFlow Sample App)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+FLUX includes a realistic sample application fixture (`fixtures/sample-app.zip`) called **LedgerFlow**, a multi-tab personal treasury and expense tracker styled with generic AI cards and blue buttons.
 
-## Learn More
+To verify the platform:
 
-To learn more about Next.js, take a look at the following resources:
+1. Open [http://localhost:3000](http://localhost:3000).
+2. Click **"Try Sample (LedgerFlow)"** (or upload `fixtures/sample-app.zip`).
+3. Observe **Step 2 (Analysis)**:
+   - Framework detected: `REACT-VITE`
+   - Styling pattern: `TAILWIND-V4`
+   - Domain detected: `FINANCE`
+   - Components detected: `MetricCard`, `TransactionForm`, `TransactionList`, `BudgetSummary`, `Navbar`
+   - State hooks and event handlers (`onSubmit`, `onChange`, `onClick`) are recognized and catalogued.
+4. Click **"Synthesize Visual Directions"**.
+5. Observe **Step 3 (Design Exploration)**:
+   - 3 distinct philosophies are displayed: *Swiss Terminal Precision*, *Nordic Frost Luxe*, and *Kinetic Cyber Ledger*.
+   - Each displays visual reference artboards, typography pairings, and palette tokens.
+6. Click **"Apply & Transform Codebase"** on *Swiss Terminal Precision*.
+7. Observe **Step 4 & 5 (Sandbox & Verification)**:
+   - **Verification Score**: 100% PASS (Syntax balance, Component contracts, Interactive behavior preservation, Token wiring).
+   - **Live Preview Frame**: Test the interactive preview across Desktop, Tablet, and Mobile viewports. Toggle between **"Redesigned (FLUX)"** and **"Original UI"**.
+   - **Source Code Modifications**: Review the unified diff viewer displaying line-by-line changes.
+8. Test **Natural-Language Refinement**:
+   - In the refinement chat, type: *"Make the palette darker with pitch obsidian surfaces and sharp 0px borders"*.
+   - Click **Apply**.
+   - Observe the updated tokens applied to `src/index.css` and verified.
+9. Click **"Download Transformed Project (.zip)"**.
+10. Unzip the downloaded archive to inspect the modified codebase and `TRANSFORMATION_REPORT.md`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Supported Project Structures
 
-## Deploy on Vercel
+FLUX currently targets React web applications:
+- **React + Vite**: standard `package.json`, `src/App.tsx`, `src/index.css`, `src/components/`.
+- **Next.js (App Router & Pages Router)**: `app/page.tsx`, `src/app/page.tsx`, `pages/index.tsx`.
+- **Create React App / generic React SPAs**: standard `src/` component structures.
+- **Styling**: Tailwind CSS (v3 and v4 `@theme`), standard CSS stylesheets with CSS variables, and CSS modules.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Known Limitations
+
+- **Backend code execution**: Uploaded backend APIs (Node servers, databases) are not executed on the platform server for security isolation.
+- **Non-React frameworks**: Vue, Svelte, and Angular are not yet supported in this initial version.
+- **Image generation rate limits**: Cloud image generation providers may be subject to external provider rate limits. FLUX gracefully falls back to deterministic vector artboards when external APIs are unreachable or unconfigured.
+
+---
+
+## Security Boundary Architecture
+
+- **Path Traversal Prevention**: Every entry in an uploaded ZIP archive is validated to strictly prevent directory traversal (`..`, absolute paths, null bytes).
+- **Execution Sandboxing**: Uploaded code is strictly segregated inside isolated workspace directories.
+- **Resource Constraints**: Zip extraction size is capped at 60MB, single files at 12MB, and file counts at 600. Forbidden executable extensions (`.exe`, `.dll`, `.so`, `.sh`, `.bat`, etc.) are rejected upon intake.
+- **Secret Hygiene**: Provider API keys are server-side only and are never transmitted to client browsers.
